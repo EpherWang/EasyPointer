@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">EasyPointer</string>
+    <string name="notification_title">EasyPointer Socket</string>
+    <string name="accessibility_service_label">EasyPointer Accessibility Service</string>
+
+    <string name="accessibility_on">Accessibility: 已开启</string>
+    <string name="accessibility_off">Accessibility: 未开启</string>
+    <string name="socket_running">Socket: 运行中</string>
+    <string name="socket_stopped">Socket: 未运行</string>
+    <string name="port_value">监听端口: %1$d</string>
+    <string name="last_command_value">最近命令: %1$s</string>
+    <string name="pointer_coord_value">指针坐标: (%1$d, %2$d) | 可见: %3$b</string>
+    <string name="status_message_value">状态: %1$s</string>
+    <string name="status_accessibility_unavailable">无障碍服务未连接</string>
+</resources>
