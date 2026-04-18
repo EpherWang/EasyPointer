@@ -6,14 +6,19 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.easypointer.app.AppConstants
 import com.example.easypointer.app.PointerController
+import com.example.easypointer.model.PointerCommand
 import com.example.easypointer.overlay.PointerOverlayManager
+import com.example.easypointer.socket.SocketServer
 
 /**
  * Accessibility service that owns and updates the pointer overlay.
  */
-class MyAccessibilityService : AccessibilityService(), PointerController.OverlayCommandTarget {
+class MyAccessibilityService : AccessibilityService(),
+    PointerController.OverlayCommandTarget,
+    SocketServer.Listener {
 
     private var overlayManager: PointerOverlayManager? = null
+    private var socketServer: SocketServer? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -22,6 +27,7 @@ class MyAccessibilityService : AccessibilityService(), PointerController.Overlay
         PointerController.registerOverlayTarget(this)
         PointerController.updateAccessibilityEnabled(true)
         PointerController.updateStatus("Accessibility connected")
+        startSocketIfNeeded()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -78,7 +84,48 @@ class MyAccessibilityService : AccessibilityService(), PointerController.Overlay
 
     override fun isPointerVisible(): Boolean = overlayManager?.isVisible() ?: false
 
+    override fun onServerStarted(port: Int) {
+        PointerController.updateSocketRunning(true)
+        PointerController.updateStatus("Socket listening on $port")
+    }
+
+    override fun onServerStopped() {
+        PointerController.updateSocketRunning(false)
+        PointerController.updateStatus("Socket stopped")
+    }
+
+    override fun onLineReceived(line: String) {
+        PointerController.updateLastCommand(line)
+    }
+
+    override fun onCommand(command: PointerCommand): String {
+        val dispatched = PointerController.dispatchCommand(command)
+        return if (dispatched || command == PointerCommand.Ping) {
+            PointerController.publishOverlayState()
+            "OK"
+        } else {
+            "ERROR ${AppConstants.ERROR_SERVICE_UNAVAILABLE}"
+        }
+    }
+
+    override fun onError(message: String, t: Throwable?) {
+        Log.e(AppConstants.TAG_APP, message, t)
+        PointerController.updateStatus("Socket error: $message")
+    }
+
+    private fun startSocketIfNeeded() {
+        if (socketServer?.isRunning() == true) return
+        socketServer = SocketServer(AppConstants.SOCKET_PORT, this).also { it.start() }
+    }
+
+    private fun stopSocketIfNeeded() {
+        socketServer?.stop()
+        socketServer = null
+        PointerController.updateSocketRunning(false)
+    }
+
     private fun cleanup() {
+        stopSocketIfNeeded()
         PointerController.unregisterOverlayTarget(this)
         PointerController.updateAccessibilityEnabled(false)
         PointerController.updateStatus("Accessibility disconnected")

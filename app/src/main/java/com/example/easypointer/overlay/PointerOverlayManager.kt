@@ -1,6 +1,7 @@
 package com.example.easypointer.overlay
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -40,7 +41,7 @@ class PointerOverlayManager(
     private val layoutParams = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
@@ -129,7 +130,7 @@ class PointerOverlayManager(
         pointerView = View(appContext).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(pointerColor)
+                setColor(Color.BLUE)
             }
             layoutParams = WindowManager.LayoutParams(pointerSizePx, pointerSizePx)
         }
