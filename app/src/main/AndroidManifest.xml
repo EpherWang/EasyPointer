@@ -14,12 +14,6 @@
         android:theme="@style/Theme.EasyPointer">
 
         <service
-            android:name=".service.SocketForegroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <service
             android:name=".service.MyAccessibilityService"
             android:enabled="true"
             android:exported="false"
