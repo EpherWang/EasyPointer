@@ -1,9 +1,9 @@
 package com.example.easypointer.overlay
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -26,6 +26,7 @@ class PointerOverlayManager(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val windowManager = appContext.getSystemService(WindowManager::class.java)
     private val screenInfoProvider = ScreenInfoProvider(appContext)
+    private val color = pointerColor
 
     private var pointerView: View? = null
     private var isAdded: Boolean = false
@@ -127,11 +128,26 @@ class PointerOverlayManager(
 
     private fun ensureView() {
         if (pointerView != null) return
+        val strokeThickness = (pointerSizePx * 0.22f).toInt().coerceAtLeast(2)
+        val halfSize = pointerSizePx / 2
+        val halfThickness = strokeThickness / 2
+
+        val vertical = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+        }
+        val horizontal = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+        }
+
+        val crossDrawable = LayerDrawable(arrayOf(vertical, horizontal)).apply {
+            setLayerInset(0, halfSize - halfThickness, 0, halfSize - halfThickness, 0)
+            setLayerInset(1, 0, halfSize - halfThickness, 0, halfSize - halfThickness)
+        }
+
         pointerView = View(appContext).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.BLUE)
-            }
+            background = crossDrawable
             layoutParams = WindowManager.LayoutParams(pointerSizePx, pointerSizePx)
         }
     }

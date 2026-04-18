@@ -24,7 +24,7 @@ class SocketServer(
         fun onServerStarted(port: Int)
         fun onServerStopped()
         fun onLineReceived(line: String)
-        fun onCommand(command: PointerCommand): String
+        fun onCommand(command: PointerCommand): String?
         fun onError(message: String, t: Throwable? = null)
     }
 
@@ -94,13 +94,15 @@ class SocketServer(
                     result.command != null -> listener.onCommand(result.command)
                     else -> "ERROR unknown"
                 }
-                try {
-                    output.write(response)
-                    output.newLine()
-                    output.flush()
-                } catch (t: Throwable) {
-                    listener.onError("client_write_failed", t)
-                    break
+                if (response != null) {
+                    try {
+                        output.write(response)
+                        output.newLine()
+                        output.flush()
+                    } catch (t: Throwable) {
+                        listener.onError("client_write_failed", t)
+                        break
+                    }
                 }
             }
         }
