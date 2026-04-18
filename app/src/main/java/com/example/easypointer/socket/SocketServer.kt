@@ -1,5 +1,7 @@
 package com.example.easypointer.socket
 
+import android.net.LocalServerSocket
+import android.net.LocalSocket
 import android.util.Log
 import com.example.easypointer.app.AppConstants
 import com.example.easypointer.model.PointerCommand
@@ -19,6 +21,10 @@ class SocketServer(
     private val port: Int,
     private val listener: Listener
 ) {
+    companion object {
+        private const val USE_LOCAL_SERVER_SOCKET = false
+        private const val LOCAL_SOCKET_NAME_PREFIX = "easypointer_"
+    }
 
     interface Listener {
         fun onServerStarted(port: Int)
@@ -32,9 +38,13 @@ class SocketServer(
     @Volatile
     private var serverSocket: ServerSocket? = null
     @Volatile
+    private var localServerSocket: LocalServerSocket? = null
+    @Volatile
     private var acceptThread: Thread? = null
     @Volatile
     private var clientSocket: Socket? = null
+    @Volatile
+    private var localClientSocket: LocalSocket? = null
     @Volatile
     private var clientThread: Thread? = null
 
@@ -43,19 +53,37 @@ class SocketServer(
 
         acceptThread = Thread({
             try {
-                ServerSocket(port).also { serverSocket = it }
+                if (USE_LOCAL_SERVER_SOCKET) {
+                    LocalServerSocket(localSocketName()).also { localServerSocket = it }
+                } else {
+                    ServerSocket(port).also { serverSocket = it }
+                }
                 listener.onServerStarted(port)
                 while (running.get()) {
-                    val client = try {
-                        serverSocket?.accept()
-                    } catch (t: Throwable) {
-                        if (running.get()) {
-                            listener.onError("accept_failed", t)
+                    if (USE_LOCAL_SERVER_SOCKET) {
+                        val client = try {
+                            localServerSocket?.accept()
+                        } catch (t: Throwable) {
+                            if (running.get()) {
+                                listener.onError("accept_failed", t)
+                            }
+                            null
                         }
-                        null
-                    }
-                    if (client != null) {
-                        replaceActiveClient(client)
+                        if (client != null) {
+                            replaceActiveLocalClient(client)
+                        }
+                    } else {
+                        val client = try {
+                            serverSocket?.accept()
+                        } catch (t: Throwable) {
+                            if (running.get()) {
+                                listener.onError("accept_failed", t)
+                            }
+                            null
+                        }
+                        if (client != null) {
+                            replaceActiveClient(client)
+                        }
                     }
                 }
             } catch (t: Throwable) {
@@ -79,11 +107,25 @@ class SocketServer(
 
     private fun replaceActiveClient(newClient: Socket) {
         clientSocket?.closeQuietly()
+        localClientSocket?.closeQuietly()
         clientThread?.interrupt()
 
         clientSocket = newClient
+        localClientSocket = null
         clientThread = Thread({
             handleClient(newClient)
+        }, "socket-client-thread").apply { start() }
+    }
+
+    private fun replaceActiveLocalClient(newClient: LocalSocket) {
+        clientSocket?.closeQuietly()
+        localClientSocket?.closeQuietly()
+        clientThread?.interrupt()
+
+        localClientSocket = newClient
+        clientSocket = null
+        clientThread = Thread({
+            handleLocalClient(newClient)
         }, "socket-client-thread").apply { start() }
     }
 
@@ -129,9 +171,53 @@ class SocketServer(
         }
     }
 
+    private fun handleLocalClient(socket: LocalSocket) {
+        try {
+            socket.use { client ->
+                val input = BufferedReader(InputStreamReader(client.inputStream))
+                val output = BufferedWriter(OutputStreamWriter(client.outputStream))
+                while (running.get()) {
+                    val line = try {
+                        input.readLine()
+                    } catch (t: Throwable) {
+                        listener.onError("client_read_failed", t)
+                        null
+                    }
+                    if (line == null) break
+
+                    listener.onLineReceived(line)
+                    val result = CommandParser.parse(line)
+                    val response = when {
+                        result.error != null -> "ERROR ${result.error}"
+                        result.command == PointerCommand.Ping -> "PONG"
+                        result.command != null -> listener.onCommand(result.command)
+                        else -> "ERROR unknown"
+                    }
+                    if (response != null) {
+                        try {
+                            output.write(response)
+                            output.newLine()
+                            output.flush()
+                        } catch (t: Throwable) {
+                            listener.onError("client_write_failed", t)
+                            break
+                        }
+                    }
+                }
+            }
+        } finally {
+            if (localClientSocket === socket) {
+                localClientSocket = null
+                clientThread = null
+            }
+        }
+    }
+
     private fun safeClose() {
         clientSocket?.closeQuietly()
         clientSocket = null
+        localClientSocket?.closeQuietly()
+        localClientSocket = null
         clientThread?.interrupt()
         clientThread = null
         try {
@@ -141,6 +227,13 @@ class SocketServer(
         } finally {
             serverSocket = null
         }
+        try {
+            localServerSocket?.close()
+        } catch (t: Throwable) {
+            Log.w(AppConstants.TAG_APP, "Ignored local server close error", t)
+        } finally {
+            localServerSocket = null
+        }
     }
 
     private fun Socket.closeQuietly() {
@@ -149,4 +242,13 @@ class SocketServer(
         } catch (_: Throwable) {
         }
     }
+
+    private fun LocalSocket.closeQuietly() {
+        try {
+            close()
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun localSocketName(): String = "$LOCAL_SOCKET_NAME_PREFIX$port"
 }
