@@ -98,11 +98,15 @@ class MyAccessibilityService : AccessibilityService(),
         PointerController.updateLastCommand(line)
     }
 
-    override fun onCommand(command: PointerCommand): String {
+    override fun onCommand(command: PointerCommand): String? {
         val dispatched = PointerController.dispatchCommand(command)
         return if (dispatched || command == PointerCommand.Ping) {
             PointerController.publishOverlayState()
-            "OK"
+            if (command is PointerCommand.Move || command is PointerCommand.Offset) {
+                null
+            } else {
+                "OK"
+            }
         } else {
             "ERROR ${AppConstants.ERROR_SERVICE_UNAVAILABLE}"
         }
