@@ -1,6 +1,7 @@
 package com.example.easypointer.overlay
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -19,15 +20,12 @@ import com.example.easypointer.util.ScreenInfoProvider
  */
 class PointerOverlayManager(
     context: Context,
-    pointerColor: Int = AppConstants.DEFAULT_POINTER_COLOR,
     pointerSizeDp: Int = AppConstants.DEFAULT_POINTER_SIZE_DP
 ) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val windowManager = appContext.getSystemService(WindowManager::class.java)
     private val screenInfoProvider = ScreenInfoProvider(appContext)
-    private val color = pointerColor
-
     private var pointerView: View? = null
     private var isAdded: Boolean = false
     private var centerX: Int = 0
@@ -134,11 +132,11 @@ class PointerOverlayManager(
 
         val vertical = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(color)
+            setColor(Color.BLUE)
         }
         val horizontal = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(color)
+            setColor(Color.BLUE)
         }
 
         val crossDrawable = LayerDrawable(arrayOf(vertical, horizontal)).apply {
